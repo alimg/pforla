@@ -1,3 +1,4 @@
+import argparse
 import pickle
 import random
 import sys
@@ -128,17 +129,27 @@ def path_graph(seq, clusters):
 
     return pathgraph
 
+parser = argparse.ArgumentParser(description='PForLA')
+parser.add_argument('graph_file', help='refrence de Bruijn Graph')
+parser.add_argument('reads_file', help='long-reads file')
+parser.add_argument('out_file', help='output file name')
+parser.add_argument('first_n_reads', type=int, help='# of reads to process. For debugging.', default=None)
 
-graph_file = sys.argv[1]
-reads_file = sys.argv[2]
-out_file = sys.argv[3]
-KMER_SIZE = int(sys.argv[4])
-first_n_reads = int(sys.argv[5])
+args = parser.parse_args()
+
+
+graph_file = args.graph_file
+reads_file = args.reads_file
+out_file = args.out_file
+first_n_reads = args.first_n_reads
 
 bank = Bank(reads_file)
 print("File '%s' is of type: %s" % (bank.uri, bank.type))
 
 graph = Graph('-in %s' % graph_file)
+KMER_SIZE = graph.kmerSize
+expected_seed_ratio = 0.8 ** KMER_SIZE
+
 
 nseqs = 0
 
@@ -151,7 +162,7 @@ total_read_length = 0
 
 read_paths = []
 for i, seq in enumerate(bank):
-    if i > first_n_reads:
+    if first_n_reads is not None and i > first_n_reads:
         continue
     # 'seq' is of type 'Sequence'.
     # Accessing 'Sequence' internals is done as follows:
@@ -164,8 +175,9 @@ for i, seq in enumerate(bank):
 
     seeds = solid_kmers(seq, graph, KMER_SIZE)
     print('#solid kmers in sequence: %d' % len(seeds))
-
-    if len(seeds) == 0 or len(seeds) / len(seq) < 1/20:
+    
+    if len(seeds) < len(seq) * expected_seed_ratio * 0.8:
+        print("discarding read due to low seed confidence")
         continue
 
     clusters = []
@@ -195,7 +207,8 @@ for i, seq in enumerate(bank):
     seeds = solid_kmers(seq, graph, KMER_SIZE)
     print('#REVERSE solid kmers in sequence: %d' % len(seeds))
 
-    if len(seeds) == 0 or len(seeds) / len(seq) < 1/20:
+    if len(seeds) < len(seq) * expected_seed_ratio * 0.8:
+        print("discarding read due to low seed confidence")
         continue
 
     clusters = []
