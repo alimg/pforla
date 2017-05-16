@@ -133,7 +133,7 @@ parser = argparse.ArgumentParser(description='PForLA')
 parser.add_argument('graph_file', help='refrence de Bruijn Graph')
 parser.add_argument('reads_file', help='long-reads file')
 parser.add_argument('out_file', help='output file name')
-parser.add_argument('first_n_reads', type=int, help='# of reads to process. For debugging.', default=None)
+parser.add_argument('reads_to_process', type=str, help='<start>:<end> indices of reads to process. For debugging/batching.', default=None)
 
 args = parser.parse_args()
 
@@ -141,7 +141,11 @@ args = parser.parse_args()
 graph_file = args.graph_file
 reads_file = args.reads_file
 out_file = args.out_file
-first_n_reads = args.first_n_reads
+
+process_interval = None
+if args.reads_to_process is not None:
+    begin, end = args.reads_to_process.split(':')
+    process_interval = int(begin), int(end)
 
 bank = Bank(reads_file)
 print("File '%s' is of type: %s" % (bank.uri, bank.type))
@@ -162,7 +166,7 @@ total_read_length = 0
 
 read_paths = []
 for i, seq in enumerate(bank):
-    if first_n_reads is not None and i > first_n_reads:
+    if process_interval is not None and (i < process_interval[0] or i >= process_interval[1]):
         continue
     # 'seq' is of type 'Sequence'.
     # Accessing 'Sequence' internals is done as follows:
@@ -234,6 +238,8 @@ for i, seq in enumerate(bank):
     # pathgraph.write_to_file('deneme.out')
 
     shortest_path = pathgraph.shortest_path(str(seeds[0][1]), str(clusters[-1][:5][-1][1]))
+    if len(shortest_path) == 0:
+        continue
     shortest_path.append(str(seeds[0][1]))
     # print(shortest_path)
     total_weight = 0
@@ -241,6 +247,9 @@ for i, seq in enumerate(bank):
         total_weight += pathgraph.vertices[shortest_path[i]][shortest_path[i + 1]]
 
     normal_distance = clusters[-1][:5][-1][1] - seeds[0][1]
+    if total_weight / normal_distance > 0.25:
+        # don't report unmathced mappings
+        continue
     total_path_found += (normal_distance - total_weight)
 
     total_read_length += len(seq)

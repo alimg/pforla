@@ -3,7 +3,7 @@ import heapq
 import sys
 
 
-class PathGraph:
+class PathGraph(object):
     def __init__(self):
         self.vertices = {}
 
@@ -57,7 +57,7 @@ class PathGraph:
                     #        n[0] = alt
                     #        break
                     #heapq.heapify(nodes)
-        return distances
+        return []
 
     def write_to_file(self, filename):
         f = open(filename, 'w')
